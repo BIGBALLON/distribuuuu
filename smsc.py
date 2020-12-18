@@ -5,8 +5,7 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 
-DEVICE = "cuda"
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 EPOCHS = 10
 LRSTEP = 5
 
@@ -40,7 +39,9 @@ class AlexNet(nn.Module):
 if __name__ == "__main__":
 
     # 1. define netowrk
-    net = AlexNet().to(device=DEVICE)
+    net = AlexNet()
+    DEVICE = "cuda"
+    net = net.to(device=DEVICE)
 
     # 2. define dataloader
     trainset = torchvision.datasets.CIFAR10(

@@ -8,8 +8,7 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 
-DEVICE = "cuda"
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 EPOCHS = 10
 LRSTEP = 5
 
@@ -46,6 +45,7 @@ if __name__ == "__main__":
     net = AlexNet()
     # Use single-machine multi-GPU DataParallel,
     # you would like to speed up training with the minimum code change.
+    DEVICE = "cuda"
     net = nn.DataParallel(net)
     net.to(device=DEVICE)
 
@@ -109,47 +109,3 @@ if __name__ == "__main__":
         scheduler.step()
 
     print("\n            =======  Training Finished  ======= \n")
-
-
-"""
- (pth1.7) ζ CUDA_VISIBLE_DEVICES=0,1 python smmc_dp.py 
- (pth1.7) ζ nvidia-smi
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 418.67       Driver Version: 418.67       CUDA Version: 10.1     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|===============================+======================+======================|
-|   0  GeForce GTX 108...  On   | 00000000:04:00.0 Off |                  N/A |
-| 24%   42C    P2    57W / 250W |    615MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   1  GeForce GTX 108...  On   | 00000000:06:00.0 Off |                  N/A |
-| 25%   43C    P2    60W / 250W |    519MiB / 11178MiB |      4%      Default |
-+-------------------------------+----------------------+----------------------+
-|   2  GeForce GTX 108...  On   | 00000000:07:00.0 Off |                  N/A |
-| 21%   25C    P8     9W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   3  GeForce GTX 108...  On   | 00000000:08:00.0 Off |                  N/A |
-| 21%   27C    P8    10W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   4  GeForce GTX 108...  On   | 00000000:0C:00.0 Off |                  N/A |
-| 21%   26C    P8     9W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   5  GeForce GTX 108...  On   | 00000000:0D:00.0 Off |                  N/A |
-| 21%   22C    P8    10W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   6  GeForce GTX 108...  On   | 00000000:0E:00.0 Off |                  N/A |
-| 21%   26C    P8    12W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-|   7  GeForce GTX 108...  On   | 00000000:0F:00.0 Off |                  N/A |
-| 21%   26C    P8     8W / 250W |      0MiB / 11178MiB |      0%      Default |
-+-------------------------------+----------------------+----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                       GPU Memory |
-|  GPU       PID   Type   Process name                             Usage      |
-|=============================================================================|
-|    0     17601      C   python                                       605MiB |
-|    1     17601      C   python                                       519MiB |
-+-----------------------------------------------------------------------------+
-"""
