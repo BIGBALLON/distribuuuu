@@ -1,3 +1,6 @@
-# PyTorch Distributed Training
+<div align="center">
+<img src="./images/logo.svg" width="400px">
 
-TBD
+**The clean and lightweight PyTorch Distributed Classification Training Framework for AI research.**
+
+</div>
