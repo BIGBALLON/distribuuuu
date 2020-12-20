@@ -1,4 +1,4 @@
-"""Single Machine Single GPU Training"""
+"""(SNSC) Single Node Single GPU Card Training"""
 import torch
 import torch.nn as nn
 import torchvision

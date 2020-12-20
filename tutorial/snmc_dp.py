@@ -1,5 +1,5 @@
 """
-Single Machine Multi-GPU Training (with DataParallel)
+(SNMC) Single Node Multi-GPU Crads Training (with DataParallel)
 Try to compare with smsc.py and find out the differences.
 """
 import torch

@@ -1,6 +1,6 @@
 <div align="center">
-<img src="./images/logo.svg" width="400px">
+<img src="./images/logo.png" width="300px">
 
-**The clean and lightweight PyTorch Distributed Classification Training Framework for AI research.**
+**The minimal and clear PyTorch Distributed Training Tutorial.**
 
 </div>
