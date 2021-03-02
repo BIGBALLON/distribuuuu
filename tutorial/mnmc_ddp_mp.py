@@ -3,7 +3,6 @@
     with DistributedDataParallel and torch.multiprocessing
 Try to compare with [snsc.py, snmc_dp.py & mnmc_ddp_launch.py] and find out the differences.
 """
-
 import argparse
 
 import torch
@@ -66,7 +65,7 @@ def train_worker(local_rank, ngpus_per_node, args):
     device = torch.device("cuda", local_rank)
     torch.cuda.set_device(local_rank)
 
-    print(f"[init] == local rank: {local_rank}, global rank: {args.global_rank}")
+    print(f"[init] == local rank: {local_rank}, global rank: {args.global_rank} ==")
 
     # 1. define netowrk
     net = torchvision.models.resnet18(pretrained=False, num_classes=10)
@@ -93,10 +92,9 @@ def train_worker(local_rank, ngpus_per_node, args):
         ),
     )
     # DistributedSampler
-    # we test single Machine with 2 GPUs
-    # so the [batch size] for each process is 256 / 2 = 128
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        trainset, shuffle=True,
+        trainset,
+        shuffle=True,
     )
     train_loader = torch.utils.data.DataLoader(
         trainset,
@@ -109,7 +107,11 @@ def train_worker(local_rank, ngpus_per_node, args):
     # 3. define loss and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(
-        net.parameters(), lr=0.01 * 2, momentum=0.9, weight_decay=0.0001, nesterov=True,
+        net.parameters(),
+        lr=0.01 * 2,
+        momentum=0.9,
+        weight_decay=0.0001,
+        nesterov=True,
     )
 
     if args.global_rank == 0:
@@ -121,8 +123,6 @@ def train_worker(local_rank, ngpus_per_node, args):
         train_loss = correct = total = 0
         # set sampler
         train_loader.sampler.set_epoch(ep)
-        if args.global_rank == 0:
-            print(f" === Epoch: [{ep + 1}/{EPOCHS}] === ")
 
         for idx, (inputs, targets) in enumerate(train_loader):
             inputs, targets = inputs.to(device), targets.to(device)
@@ -141,9 +141,11 @@ def train_worker(local_rank, ngpus_per_node, args):
                 (idx + 1) % 25 == 0 or (idx + 1) == len(train_loader)
             ):
                 print(
-                    "   == step: [{:3}/{}] | loss: {:.3f} | acc: {:6.3f}%".format(
+                    "   == step: [{:3}/{}] [{}/{}] | loss: {:.3f} | acc: {:6.3f}%".format(
                         idx + 1,
                         len(train_loader),
+                        ep,
+                        EPOCHS,
                         train_loss / (idx + 1),
                         100.0 * correct / total,
                     )
@@ -154,3 +156,39 @@ def train_worker(local_rank, ngpus_per_node, args):
 
 if __name__ == "__main__":
     main()
+
+
+"""
+usage:
+>>> python mnmc_ddp_mp.py --help
+
+exmaple:
+>>> python mnmc_ddp_mp.py --nodes=1 --ngpus_per_node=2
+
+[init] == local rank: 1, global rank: 1 ==
+[init] == local rank: 0, global rank: 0 ==
+            =======  Training  ======= 
+
+   == step: [ 25/98] [0/5] | loss: 2.020 | acc: 27.266%
+   == step: [ 50/98] [0/5] | loss: 1.857 | acc: 32.266%
+   == step: [ 75/98] [0/5] | loss: 1.761 | acc: 35.516%
+   == step: [ 98/98] [0/5] | loss: 1.705 | acc: 37.668%
+   == step: [ 25/98] [1/5] | loss: 1.438 | acc: 46.922%
+   == step: [ 50/98] [1/5] | loss: 1.411 | acc: 48.305%
+   == step: [ 75/98] [1/5] | loss: 1.385 | acc: 49.396%
+   == step: [ 98/98] [1/5] | loss: 1.363 | acc: 50.292%
+   == step: [ 25/98] [2/5] | loss: 1.259 | acc: 54.297%
+   == step: [ 50/98] [2/5] | loss: 1.245 | acc: 54.773%
+   == step: [ 75/98] [2/5] | loss: 1.230 | acc: 55.401%
+   == step: [ 98/98] [2/5] | loss: 1.217 | acc: 55.944%
+   == step: [ 25/98] [3/5] | loss: 1.159 | acc: 58.641%
+   == step: [ 50/98] [3/5] | loss: 1.136 | acc: 59.320%
+   == step: [ 75/98] [3/5] | loss: 1.121 | acc: 59.922%
+   == step: [ 98/98] [3/5] | loss: 1.109 | acc: 60.400%
+   == step: [ 25/98] [4/5] | loss: 1.011 | acc: 64.047%
+   == step: [ 50/98] [4/5] | loss: 1.016 | acc: 63.398%
+   == step: [ 75/98] [4/5] | loss: 1.009 | acc: 63.604%
+   == step: [ 98/98] [4/5] | loss: 1.006 | acc: 64.084%
+
+            =======  Training Finished  ======= 
+"""
