@@ -20,8 +20,7 @@ EPOCHS = 5
 
 
 def setup_distributed(backend="nccl", port=None):
-    """Initialize slurm distributed training environment. (from mmcv)
-    """
+    """Initialize slurm distributed training environment. (from mmcv)"""
     proc_id = int(os.environ["SLURM_PROCID"])
     ntasks = int(os.environ["SLURM_NTASKS"])
     node_list = os.environ["SLURM_NODELIST"]
@@ -51,7 +50,7 @@ if __name__ == "__main__":
 
     local_rank = int(os.environ["LOCAL_RANK"])
     rank = int(os.environ["RANK"])
-    print(f"[init] == local rank: {local_rank}, global rank: {rank}")
+    print(f"[init] == local rank: {local_rank}, global rank: {rank} ==")
 
     # 1. define netowrk
     net = torchvision.models.resnet18(pretrained=False, num_classes=10)
@@ -78,10 +77,9 @@ if __name__ == "__main__":
         ),
     )
     # DistributedSampler
-    # we test single Machine with 2 GPUs
-    # so the [batch size] for each process is 256 / 2 = 128
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        trainset, shuffle=True,
+        trainset,
+        shuffle=True,
     )
     train_loader = torch.utils.data.DataLoader(
         trainset,
@@ -94,7 +92,11 @@ if __name__ == "__main__":
     # 3. define loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(
-        net.parameters(), lr=0.01 * 2, momentum=0.9, weight_decay=0.0001, nesterov=True,
+        net.parameters(),
+        lr=0.01 * dist.get_world_size(),
+        momentum=0.9,
+        weight_decay=0.0001,
+        nesterov=True,
     )
 
     if rank == 0:
@@ -106,8 +108,6 @@ if __name__ == "__main__":
         train_loss = correct = total = 0
         # set sampler
         train_loader.sampler.set_epoch(ep)
-        if rank == 0:
-            print(f" === Epoch: [{ep + 1}/{EPOCHS}] === ")
 
         for idx, (inputs, targets) in enumerate(train_loader):
             inputs, targets = inputs.cuda(local_rank), targets.to(local_rank)
@@ -124,12 +124,41 @@ if __name__ == "__main__":
 
             if rank == 0 and ((idx + 1) % 25 == 0 or (idx + 1) == len(train_loader)):
                 print(
-                    "   == step: [{:3}/{}] | loss: {:.3f} | acc: {:6.3f}%".format(
+                    "   == step: [{:3}/{}] [{}/{}] | loss: {:.3f} | acc: {:6.3f}%".format(
                         idx + 1,
                         len(train_loader),
+                        ep,
+                        EPOCHS,
                         train_loss / (idx + 1),
                         100.0 * correct / total,
                     )
                 )
     if rank == 0:
         print("\n            =======  Training Finished  ======= \n")
+
+
+"""
+usage:
+>>> srun --help
+
+example:
+>>> srun --partition=openai -n8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --job-name=slrum_test \
+    python -u mnmc_ddp_slurm.py
+
+            =======  Training  ======= 
+[init] == local rank: 1, global rank: 1 ==
+[init] == local rank: 7, global rank: 7 ==
+[init] == local rank: 4, global rank: 4 ==
+[init] == local rank: 2, global rank: 2 ==
+[init] == local rank: 0, global rank: 0 ==
+[init] == local rank: 5, global rank: 5 ==
+[init] == local rank: 6, global rank: 6 ==
+[init] == local rank: 3, global rank: 3 ==
+   == step: [ 25/25] [0/5] | loss: 1.934 | acc: 29.152%
+   == step: [ 25/25] [1/5] | loss: 1.546 | acc: 42.976%
+   == step: [ 25/25] [2/5] | loss: 1.418 | acc: 48.064%
+   == step: [ 25/25] [3/5] | loss: 1.322 | acc: 51.728%
+   == step: [ 25/25] [4/5] | loss: 1.219 | acc: 55.920%
+
+            =======  Training Finished  =======
+"""
