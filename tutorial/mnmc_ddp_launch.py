@@ -146,7 +146,6 @@ exmaple: 1 node, 4 GPUs per node (4GPUs)
 
             =======  Training Finished  =======
 
-
 exmaple: 2 node, 4 GPUs per node (8GPUs)
 >>> CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
     --nproc_per_node=4 \
@@ -173,6 +172,7 @@ exmaple: 2 node, 4 GPUs per node (8GPUs)
    == step: [ 25/25] [4/5] | loss: 1.243 | acc: 54.672%
 
             =======  Training Finished  =======
+
 exmaple: 2 node, 8 GPUs per node (16GPUs)
 >>> python -m torch.distributed.launch \
     --nproc_per_node=8 \
