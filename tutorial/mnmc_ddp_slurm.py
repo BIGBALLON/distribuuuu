@@ -4,7 +4,6 @@
 Try to compare with [mnmc_ddp_launch.py & mnmc_ddp_mp.py] and find out the differences.
 """
 
-import argparse
 import os
 import subprocess
 
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     rank = int(os.environ["RANK"])
     print(f"[init] == local rank: {local_rank}, global rank: {rank} ==")
 
-    # 1. define netowrk
+    # 1. define network
     net = torchvision.models.resnet18(pretrained=False, num_classes=10)
     # SyncBN
     net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
@@ -104,7 +103,7 @@ if __name__ == "__main__":
 
     # 4. start to train
     net.train()
-    for ep in range(0, EPOCHS):
+    for ep in range(1, EPOCHS + 1):
         train_loss = correct = total = 0
         # set sampler
         train_loader.sampler.set_epoch(ep)

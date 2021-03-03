@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     print(f"[init] == local rank: {local_rank}, global rank: {rank} ==")
 
-    # 1. define netowrk
+    # 1. define network
     net = torchvision.models.resnet18(pretrained=False, num_classes=1000)
     # SyncBN
     net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
@@ -152,8 +152,8 @@ if __name__ == "__main__":
 example: 8GPUs (batch size: 2048)
 >>> python -m torch.distributed.launch \
     --nproc_per_node=8 \
-    --nnodes=2 \
-    --node_rank=1 \
+    --nnodes=1 \
+    --node_rank=0 \
     --master_addr=localhost \
     --master_port=22222 \
     imagenet.py
