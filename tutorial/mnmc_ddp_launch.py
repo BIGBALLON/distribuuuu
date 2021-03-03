@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     print(f"[init] == local rank: {local_rank}, global rank: {rank} ==")
 
-    # 1. define netowrk
+    # 1. define network
     net = torchvision.models.resnet18(pretrained=False, num_classes=10)
     # SyncBN
     net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     # 4. start to train
     net.train()
-    for ep in range(0, EPOCHS):
+    for ep in range(1, EPOCHS + 1):
         train_loss = correct = total = 0
         # set sampler
         train_loader.sampler.set_epoch(ep)
@@ -145,7 +145,7 @@ exmaple: 1 node, 4 GPUs per node (4GPUs)
    == step: [ 25/49] [4/5] | loss: 1.129 | acc: 59.531%
    == step: [ 49/49] [4/5] | loss: 1.117 | acc: 59.800%
 
-            =======  Training Finished  ======= 
+            =======  Training Finished  =======
 
 
 exmaple: 2 node, 4 GPUs per node (8GPUs)
@@ -173,8 +173,7 @@ exmaple: 2 node, 4 GPUs per node (8GPUs)
    == step: [ 25/25] [3/5] | loss: 1.335 | acc: 51.440%
    == step: [ 25/25] [4/5] | loss: 1.243 | acc: 54.672%
 
-            =======  Training Finished  ======= 
-            
+            =======  Training Finished  =======
 exmaple: 2 node, 8 GPUs per node (16GPUs)
 >>> python -m torch.distributed.launch \
     --nproc_per_node=8 \
