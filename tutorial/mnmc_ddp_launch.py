@@ -4,7 +4,6 @@
 Try to compare with [snsc.py, snmc_dp.py & mnmc_ddp_mp.py] and find out the differences.
 """
 
-import argparse
 import os
 
 import torch

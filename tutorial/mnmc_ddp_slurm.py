@@ -4,7 +4,6 @@
 Try to compare with [mnmc_ddp_launch.py & mnmc_ddp_mp.py] and find out the differences.
 """
 
-import argparse
 import os
 import subprocess
 
