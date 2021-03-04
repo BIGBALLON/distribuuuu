@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # 1. define network
     device = "cuda"
-    net = torchvision.models.resnet18(pretrained=True, num_classes=10)
+    net = torchvision.models.resnet18(num_classes=10)
     net = net.to(device=device)
 
     # 2. define dataloader

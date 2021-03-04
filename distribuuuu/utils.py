@@ -322,9 +322,11 @@ def load_checkpoint(checkpoint_file, model, optimizer=None):
     map_location = f"cuda:{local_rank}"
     checkpoint = torch.load(checkpoint_file, map_location=map_location)
     model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"]) if optimizer else ()
-    start_epoch = checkpoint["epoch"]
-    best_acc1 = checkpoint["best_acc1"]
+    start_epoch = best_acc1 = 0
+    if optimizer:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        start_epoch = checkpoint["epoch"] + 1
+        best_acc1 = checkpoint["best_acc1"]
     if torch.distributed.get_rank() == 0:
-        logger.info(f"LOADED '{checkpoint_file}' (best_acc@1 {best_acc1:.3f})")
+        logger.info(f"LOADED '{checkpoint_file}'")
     return start_epoch, best_acc1

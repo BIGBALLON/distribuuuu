@@ -1,5 +1,4 @@
 import argparse
-import sys
 
 from iopath.common.file_io import g_pathmgr
 from yacs.config import CfgNode as CN
@@ -15,8 +14,11 @@ _C.TRAIN.BATCH_SIZE = 256
 _C.TRAIN.IM_SIZE = 224
 _C.TRAIN.DATASET = "./ILSVRC/"
 _C.TRAIN.SPLIT = "train"
-_C.TRAIN.WEIGHTS = None
+
 _C.TRAIN.AUTO_RESUME = True
+_C.TRAIN.WEIGHTS = None
+_C.TRAIN.LOAD_OPT = True
+
 _C.TRAIN.WORKERS = 4
 _C.TRAIN.PIN_MEMORY = True
 _C.TRAIN.PRINT_FREQ = 30
@@ -71,16 +73,11 @@ def load_cfg_fom_args(description="Config file options."):
     help_s = "Config file location"
     parser.add_argument("--cfg", dest="cfg_file", help=help_s, default=None, type=str)
     help_s = "LOCAL_RANK for torch.distributed.launch.(see --use_env for more details)"
-    parser.add_argument(
-        "--local_rank", help=help_s, default=None, nargs=argparse.REMAINDER
-    )
+    parser.add_argument("--local_rank", help=help_s, default=None)
     help_s = "See distribuuuu/config.py for all options"
     parser.add_argument("opts", help=help_s, default=None, nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    if args.cfg_file is None:
-        return
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
-    merge_from_file(args.cfg_file)
-    _C.merge_from_list(args.opts)
+    if args.cfg_file is not None:
+        merge_from_file(args.cfg_file)
+    if args.opts is not None:
+        _C.merge_from_list(args.opts)

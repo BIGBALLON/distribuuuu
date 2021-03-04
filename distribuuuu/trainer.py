@@ -16,14 +16,14 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
     progress = utils.ProgressMeter(
         len(train_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=f"TRAIN:  [{cur_epoch}]",
+        prefix=f"TRAIN:  [{cur_epoch+1}]",
     )
 
     # Set learning rate
     lr = utils.get_epoch_lr(cur_epoch)
     utils.set_lr(optimizer, lr)
     if rank == 0:
-        logger.debug(f"CURRENT EPOCH: {cur_epoch:3d},   LR: {lr:.4f}")
+        logger.debug(f"CURRENT EPOCH: {cur_epoch+1:3d},   LR: {lr:.4f}")
 
     # Set sampler
     train_loader.sampler.set_epoch(cur_epoch)
@@ -66,7 +66,7 @@ def validate(val_loader, net, criterion, cur_epoch, rank):
     progress = utils.ProgressMeter(
         len(val_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=f"VAL:  [{cur_epoch}]",
+        prefix=f"VAL:  [{cur_epoch+1}]",
     )
 
     # Switch to evaluate mode
@@ -127,12 +127,12 @@ def train_model():
 
     # Resume from a specific checkpoint or the last checkpoint
     best_acc1 = start_epoch = 0
-    if cfg.TRAIN.WEIGHTS:
-        utils.load_checkpoint(cfg.TRAIN.WEIGHTS, net, optimizer)
-    elif cfg.TRAIN.AUTO_RESUME and utils.has_checkpoint():
+    if cfg.TRAIN.AUTO_RESUME and utils.has_checkpoint():
         file = utils.get_last_checkpoint()
         start_epoch, best_acc1 = utils.load_checkpoint(file, net, optimizer)
-        start_epoch += 1
+    elif cfg.TRAIN.WEIGHTS:
+        load_opt = optimizer if cfg.TRAIN.LOAD_OPT else None
+        utils.load_checkpoint(cfg.TRAIN.WEIGHTS, net, load_opt)
 
     if rank == 0:
         # from torch.utils.collect_env import get_pretty_env_info
@@ -154,5 +154,5 @@ def train_model():
         )
         if rank == 0:
             logger.info(
-                f"ACCURACY:  top1 {acc1:.3f}(best {best_acc1:.3f}) | top{cfg.TRAIN.TOPK} {acck:.3f} | SAVED {checkpoint_file}"
+                f"ACCURACY:  TOP1 {acc1:.3f}(BEST {best_acc1:.3f}) | TOP{cfg.TRAIN.TOPK} {acck:.3f} | SAVED {checkpoint_file}"
             )
