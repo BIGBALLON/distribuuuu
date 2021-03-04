@@ -72,15 +72,11 @@ def load_cfg_fom_args(description="Config file options."):
     parser.add_argument("--cfg", dest="cfg_file", help=help_s, default=None, type=str)
     help_s = "LOCAL_RANK for torch.distributed.launch.(see --use_env for more details)"
     parser.add_argument(
-        "--local_rank", help=help_s, default=None, nargs=argparse.REMAINDER
-    )
+        "--local_rank", help=help_s, default=None)
     help_s = "See distribuuuu/config.py for all options"
     parser.add_argument("opts", help=help_s, default=None, nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    if args.cfg_file is None:
-        return
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
-    merge_from_file(args.cfg_file)
-    _C.merge_from_list(args.opts)
+    if args.cfg_file is not None:
+        merge_from_file(args.cfg_file)
+    if args.opts is not None:
+        _C.merge_from_list(args.opts)
