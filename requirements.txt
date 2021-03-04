@@ -3,3 +3,4 @@ flake8
 isort>=5.7.0
 iopath
 yacs
+loguru

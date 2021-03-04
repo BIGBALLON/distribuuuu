@@ -1,19 +1,22 @@
 import os
 import shutil
 import subprocess
+import sys
+import time
 
 import numpy as np
 import torch
 import torch.distributed as dist
 import torchvision
 import torchvision.transforms as transforms
+from iopath.common.file_io import g_pathmgr
+from loguru import logger
 
 from distribuuuu.config import cfg
 
 
 def setup_distributed(backend="nccl", port=None):
-    """
-    Initialize distributed training environment.
+    """Initialize distributed training environment.
     support both slurm and torch.distributed.launch
     """
     num_gpus = torch.cuda.device_count()
@@ -44,7 +47,6 @@ def setup_distributed(backend="nccl", port=None):
         world_size=world_size,
         rank=rank,
     )
-
     torch.backends.cudnn.benchmark = cfg.CUDNN.BENCHMARK
 
 
@@ -73,7 +75,7 @@ def scaled_all_reduce(tensors):
 
 
 def construct_loader():
-    """Constructs the data loader for the given dataset."""
+    """Constructs the data loader for ILSVRC dataset."""
     traindir = os.path.join(cfg.TRAIN.DATASET, cfg.TRAIN.SPLIT)
     valdir = os.path.join(cfg.TRAIN.DATASET, cfg.TEST.SPLIT)
     normalize = transforms.Normalize(
@@ -114,7 +116,7 @@ def construct_loader():
                 ]
             ),
         ),
-        batch_size=cfg.TRAIN.BATCH_SIZE,
+        batch_size=cfg.TEST.BATCH_SIZE,
         shuffle=False,
         num_workers=cfg.TRAIN.WORKERS,
         pin_memory=cfg.TRAIN.PIN_MEMORY,
@@ -123,6 +125,7 @@ def construct_loader():
 
 
 def construct_optimizer(model):
+    """Constructs the optimizer."""
     return torch.optim.SGD(
         model.parameters(),
         lr=cfg.OPTIM.BASE_LR,
@@ -131,6 +134,19 @@ def construct_optimizer(model):
         dampening=cfg.OPTIM.DAMPENING,
         nesterov=cfg.OPTIM.NESTEROV,
     )
+
+
+def construct_logger():
+    if torch.distributed.get_rank() != 0:
+        return
+    fmt_str = "[{time:YYYY-MM-DD HH:mm:ss}] {message}"
+    logger.add(
+        f"{cfg.OUT_DIR}/{time.time()}.log",
+        format=fmt_str,
+    )
+    logger.debug(f"\n{cfg.dump()}")
+    logger.remove(0)
+    logger.add(sys.stderr, format=fmt_str)
 
 
 class AverageMeter(object):
@@ -159,6 +175,8 @@ class AverageMeter(object):
 
 
 class ProgressMeter(object):
+    """Display training progress"""
+
     def __init__(self, num_batches, meters, prefix=""):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
@@ -167,7 +185,7 @@ class ProgressMeter(object):
     def display(self, batch):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
-        print(" | ".join(entries))
+        logger.info(" | ".join(entries))
 
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
@@ -175,30 +193,29 @@ class ProgressMeter(object):
         return "[" + fmt + "/" + fmt.format(num_batches) + "]"
 
 
+def construct_meters():
+    """Constructs the meters."""
+    batch_time = AverageMeter("Time", ":6.3f")
+    data_time = AverageMeter("Data", ":5.3f")
+    losses = AverageMeter("Loss", ":6.4f")
+    top1 = AverageMeter("Acc@1", ":6.3f")
+    topk = AverageMeter(f"Acc@{cfg.TRAIN.TOPK}", ":6.3f")
+    return batch_time, data_time, losses, top1, topk
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
         batch_size = target.size(0)
-
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
-
         res = []
         for k in topk:
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
-
-
-def get_meters(is_train=True):
-    batch_time = AverageMeter("Time", ":6.3f")
-    data_time = AverageMeter("Data", ":5.3f")
-    losses = AverageMeter("Loss", ":6.4f")
-    top1 = AverageMeter("Acc@1", ":6.3f")
-    topk = AverageMeter("Acc@5", ":6.3f")
-    return batch_time, data_time, losses, top1, topk
 
 
 def lr_fun_steps(cur_epoch):
@@ -240,12 +257,74 @@ def set_lr(optimizer, new_lr):
         param_group["lr"] = new_lr
 
 
-def save_checkpoint(state, is_best, filename="ckpt.pth.tar"):
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, "ckpt_best.pth.tar")
+# Common prefix for checkpoint file names
+_NAME_PREFIX = "ckpt_ep_"
+
+# Checkpoints directory name
+_DIR_NAME = "checkpoints"
 
 
-def show_log(log_str, rank):
-    if rank == 0:
-        print(log_str)
+def get_checkpoint_dir():
+    """Retrieves the location for storing checkpoints."""
+    return os.path.join(cfg.OUT_DIR, _DIR_NAME)
+
+
+def get_checkpoint(epoch):
+    """Retrieves the path to a checkpoint file."""
+    name = f"{_NAME_PREFIX}{epoch:03d}.pth.tar"
+    return os.path.join(get_checkpoint_dir(), name)
+
+
+def get_last_checkpoint():
+    """Retrieves the most recent checkpoint (highest epoch number)."""
+    checkpoint_dir = get_checkpoint_dir()
+    checkpoints = [f for f in g_pathmgr.ls(checkpoint_dir) if _NAME_PREFIX in f]
+    last_checkpoint_name = sorted(checkpoints)[-1]
+    return os.path.join(checkpoint_dir, last_checkpoint_name)
+
+
+def has_checkpoint():
+    """Determines if there are checkpoints available."""
+    checkpoint_dir = get_checkpoint_dir()
+    if not g_pathmgr.exists(checkpoint_dir):
+        return False
+    return any(_NAME_PREFIX in f for f in g_pathmgr.ls(checkpoint_dir))
+
+
+def save_checkpoint(model, optimizer, epoch, best_acc1, best):
+    """Saves a checkpoint."""
+    # Save checkpoints only from the master process
+    if torch.distributed.get_rank() != 0:
+        return
+    # Ensure that the checkpoint dir exists
+    g_pathmgr.mkdirs(get_checkpoint_dir())
+    # Record the state
+    checkpoint = {
+        "epoch": epoch,
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "best_acc1": best_acc1,
+    }
+    # Write the checkpoint
+    checkpoint_file = get_checkpoint(epoch + 1)
+    torch.save(checkpoint, checkpoint_file)
+    # If best copy checkpoint to the best checkpoint
+    if best:
+        shutil.copyfile(checkpoint_file, os.path.join(cfg.OUT_DIR, "best.pth.tar"))
+    return checkpoint_file
+
+
+def load_checkpoint(checkpoint_file, model, optimizer=None):
+    """Loads the checkpoint from the given file."""
+    err_str = "CHECKPOINT '{}' NOT FOUND"
+    assert g_pathmgr.exists(checkpoint_file), err_str.format(checkpoint_file)
+    local_rank = int(os.environ["LOCAL_RANK"])
+    map_location = f"cuda:{local_rank}"
+    checkpoint = torch.load(checkpoint_file, map_location=map_location)
+    model.load_state_dict(checkpoint["state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer"]) if optimizer else ()
+    start_epoch = checkpoint["epoch"]
+    best_acc1 = checkpoint["best_acc1"]
+    if torch.distributed.get_rank() == 0:
+        logger.info(f"LOADED '{checkpoint_file}' (best_acc@1 {best_acc1:.3f})")
+    return start_epoch, best_acc1

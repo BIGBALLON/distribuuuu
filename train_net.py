@@ -4,7 +4,7 @@ from distribuuuu.config import cfg
 
 
 def main():
-    config.load_cfg_fom_args("Train a classification model.")
+    config.load_cfg_fom_args(description="Train a classification model.")
     cfg.freeze()
     trainer.train_model()
 

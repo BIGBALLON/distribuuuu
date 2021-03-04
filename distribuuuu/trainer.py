@@ -3,6 +3,7 @@ import time
 
 import torch
 import torch.nn as nn
+from loguru import logger
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from distribuuuu import models, utils
@@ -11,26 +12,30 @@ from distribuuuu.config import cfg
 
 def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
 
-    batch_time, data_time, losses, top1, topk = utils.get_meters()
+    batch_time, data_time, losses, top1, topk = utils.construct_meters()
     progress = utils.ProgressMeter(
         len(train_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=" = TRAIN:     [{}]".format(cur_epoch),
+        prefix=f"TRAIN:  [{cur_epoch}]",
     )
 
+    # Set learning rate
     lr = utils.get_epoch_lr(cur_epoch)
     utils.set_lr(optimizer, lr)
+    if rank == 0:
+        logger.debug(f"CURRENT EPOCH: {cur_epoch:3d},   LR: {lr:.4f}")
 
-    # set sampler
+    # Set sampler
     train_loader.sampler.set_epoch(cur_epoch)
-    # switch to train mode
-    net.train()
 
+    # Switch to train mode
+    net.train()
     end = time.time()
     for idx, (inputs, targets) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
         inputs, targets = inputs.cuda(), targets.cuda(non_blocking=True)
+
         outputs = net(inputs)
         loss = criterion(outputs, targets)
 
@@ -39,7 +44,7 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
         optimizer.step()
 
         batch_size = inputs.size(0)
-        acc_1, acc_k = utils.accuracy(outputs, targets, topk=(1, 5))
+        acc_1, acc_k = utils.accuracy(outputs, targets, topk=(1, cfg.TRAIN.TOPK))
         loss, acc_1, acc_k = utils.scaled_all_reduce([loss, acc_1, acc_k])
 
         losses.update(loss.item(), batch_size)
@@ -50,21 +55,21 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
         end = time.time()
 
         if rank == 0 and (
-            idx % cfg.TRAIN.PRINT_FEQ == 0 or (idx + 1) == len(train_loader)
+            (idx + 1) % cfg.TRAIN.PRINT_FREQ == 0 or (idx + 1) == len(train_loader)
         ):
-            progress.display(idx)
+            progress.display(idx + 1)
 
 
 def validate(val_loader, net, criterion, cur_epoch, rank):
 
-    batch_time, data_time, losses, top1, topk = utils.get_meters()
+    batch_time, data_time, losses, top1, topk = utils.construct_meters()
     progress = utils.ProgressMeter(
         len(val_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=" = VAL:     [{}]".format(cur_epoch),
+        prefix=f"VAL:  [{cur_epoch}]",
     )
 
-    # switch to evaluate mode
+    # Switch to evaluate mode
     net.eval()
     with torch.no_grad():
         end = time.time()
@@ -76,7 +81,7 @@ def validate(val_loader, net, criterion, cur_epoch, rank):
 
             loss = criterion(outputs, targets)
 
-            acc_1, acc_k = utils.accuracy(outputs, targets, topk=(1, 5))
+            acc_1, acc_k = utils.accuracy(outputs, targets, topk=(1, cfg.TRAIN.TOPK))
             loss, acc_1, acc_k = utils.scaled_all_reduce([loss, acc_1, acc_k])
 
             batch_size = inputs.size(0)
@@ -87,80 +92,67 @@ def validate(val_loader, net, criterion, cur_epoch, rank):
             end = time.time()
 
             if rank == 0 and (
-                idx % cfg.TEST.PRINT_FEQ == 0 or (idx + 1) == len(val_loader)
+                (idx + 1) % cfg.TEST.PRINT_FREQ == 0 or (idx + 1) == len(val_loader)
             ):
-                progress.display(idx)
+                progress.display(idx + 1)
 
     return top1.avg, topk.avg
 
 
 def train_model():
 
-    # 0x00. set up distributed device
+    # 0x00. Set up distributed device
     utils.setup_distributed()
-
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     device = torch.device("cuda", local_rank)
+    logger.debug(f"LOCAL_RANK: {local_rank}, RANK: {rank}")
+    utils.construct_logger()
 
-    utils.show_log(f" = INFO:     LOCAL_RANK: {local_rank}, RANK: {rank}", 0)
-
-    # 0x01. define network
-    net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=False, num_classes=1000)
+    # 0x01. Define network
+    net = models.build_model(arch=cfg.MODEL.ARCH)
     # SyncBN
+    # https://pytorch.org/docs/stable/generated/torch.nn.SyncBatchNorm.html
     net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
     net = net.to(device)
-    # DistributedDataParallel
+    # DistributedDataParallel wrapper
     net = DDP(net, device_ids=[local_rank], output_device=local_rank)
-    # 0x02. define dataloader
+
+    # 0x02. Define dataloader
     train_loader, val_loader = utils.construct_loader()
 
-    # 0x03. define criterion and optimizer
+    # 0x03. Define criterion and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = utils.construct_optimizer(net)
 
-    # optionally resume from a checkpoint
+    # Resume from a specific checkpoint or the last checkpoint
     best_acc1 = start_epoch = 0
-    if cfg.TRAIN.CHECKPOINT:
-        if os.path.isfile(cfg.TRAIN.CHECKPOINT):
-            # Map model to be loaded to specified single gpu.
-            map_location = f"cuda:{local_rank}"
-            checkpoint = torch.load(cfg.TRAIN.CHECKPOINT, map_location=map_location)
-            start_epoch = checkpoint["epoch"]
-            best_acc1 = checkpoint["best_acc1"]
-            net.load_state_dict(checkpoint["state_dict"])
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            utils.show_log(
-                f" = INFO:     LOADED '{cfg.TRAIN.CHECKPOINT}' (epoch {start_epoch})",
-                rank,
-            )
-        else:
-            utils.show_log(
-                f" = WARNING:     NO CHECKPOINT FOUND AT '{cfg.TRAIN.CHECKPOINT}'", rank
-            )
+    if cfg.TRAIN.WEIGHTS:
+        utils.load_checkpoint(cfg.TRAIN.WEIGHTS, net, optimizer)
+    elif cfg.TRAIN.AUTO_RESUME and utils.has_checkpoint():
+        file = utils.get_last_checkpoint()
+        start_epoch, best_acc1 = utils.load_checkpoint(file, net, optimizer)
+        start_epoch += 1
 
-    utils.show_log("\n            =======  TRAINING  ======= \n", rank)
+    if rank == 0:
+        # from torch.utils.collect_env import get_pretty_env_info
+        # logger.debug(get_pretty_env_info())
+        # logger.debug(net)
+        logger.info("\n\n\n            =======  TRAINING  ======= \n\n")
 
-    # 0x04. start to train
+    # 0x04. Start to train
     for epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
+        # Train one epoch
         train_epoch(train_loader, net, criterion, optimizer, epoch, rank)
-        acc1, acc5 = validate(val_loader, net, criterion, epoch, rank)
+        # Validate
+        acc1, acck = validate(val_loader, net, criterion, epoch, rank)
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
+        # Save model
+        checkpoint_file = utils.save_checkpoint(
+            net, optimizer, epoch, best_acc1, is_best
+        )
         if rank == 0:
-            ckpt_name = f"ckpt_{epoch}.pth.tar"
-            utils.save_checkpoint(
-                {
-                    "epoch": epoch,
-                    "arch": cfg.MODEL.ARCH,
-                    "state_dict": net.state_dict(),
-                    "best_acc1": best_acc1,
-                    "optimizer": optimizer.state_dict(),
-                },
-                is_best=is_best,
-                filename=ckpt_name,
-            )
-            utils.show_log(
-                f" = INFO:     Acc@1 {acc1:.3f} | Acc@5 {acc5:.3f} | BEST Acc@1 {best_acc1:.3f} | SAVED {ckpt_name}",
-                rank,
+            logger.info(
+                f"ACCURACY:  top1 {acc1:.3f}(best {best_acc1:.3f}) | top{cfg.TRAIN.TOPK} {acck:.3f} | SAVED {checkpoint_file}"
             )

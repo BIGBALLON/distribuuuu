@@ -2,7 +2,6 @@
 (MNMC) Multiple Nodes Multi-GPU Cards Training
 """
 
-import argparse
 import os
 import subprocess
 
