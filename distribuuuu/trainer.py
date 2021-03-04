@@ -16,14 +16,14 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
     progress = utils.ProgressMeter(
         len(train_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=f"TRAIN:  [{cur_epoch}]",
+        prefix=f"TRAIN:  [{cur_epoch+1}]",
     )
 
     # Set learning rate
     lr = utils.get_epoch_lr(cur_epoch)
     utils.set_lr(optimizer, lr)
     if rank == 0:
-        logger.debug(f"CURRENT EPOCH: {cur_epoch:3d},   LR: {lr:.4f}")
+        logger.debug(f"CURRENT EPOCH: {cur_epoch+1:3d},   LR: {lr:.4f}")
 
     # Set sampler
     train_loader.sampler.set_epoch(cur_epoch)
@@ -66,7 +66,7 @@ def validate(val_loader, net, criterion, cur_epoch, rank):
     progress = utils.ProgressMeter(
         len(val_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=f"VAL:  [{cur_epoch}]",
+        prefix=f"VAL:  [{cur_epoch+1}]",
     )
 
     # Switch to evaluate mode
