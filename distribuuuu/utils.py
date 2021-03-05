@@ -18,6 +18,7 @@ from distribuuuu.config import cfg
 def setup_distributed(backend="nccl", port=None):
     """Initialize distributed training environment.
     support both slurm and torch.distributed.launch
+    see torch.distributed.init_process_group() for more details
     """
     num_gpus = torch.cuda.device_count()
 
@@ -74,13 +75,9 @@ def scaled_all_reduce(tensors):
     return tensors
 
 
-def construct_loader():
-    """Constructs the data loader for ILSVRC dataset."""
+def construct_train_loader():
+    """Constructs the train data loader for ILSVRC dataset."""
     traindir = os.path.join(cfg.TRAIN.DATASET, cfg.TRAIN.SPLIT)
-    valdir = os.path.join(cfg.TRAIN.DATASET, cfg.TEST.SPLIT)
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
     trainset = torchvision.datasets.ImageFolder(
         root=traindir,
         transform=transforms.Compose(
@@ -88,7 +85,9 @@ def construct_loader():
                 transforms.RandomResizedCrop(cfg.TRAIN.IM_SIZE),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                normalize,
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
             ]
         ),
     )
@@ -102,26 +101,38 @@ def construct_loader():
         num_workers=cfg.TRAIN.WORKERS,
         pin_memory=cfg.TRAIN.PIN_MEMORY,
         sampler=train_sampler,
+        drop_last=True,
     )
+    return train_loader
 
-    val_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.ImageFolder(
-            root=valdir,
-            transform=transforms.Compose(
-                [
-                    transforms.Resize(cfg.TEST.IM_SIZE),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    normalize,
-                ]
-            ),
+
+def construct_val_loader():
+    """Constructs the validate data loader for ILSVRC dataset."""
+    valdir = os.path.join(cfg.TRAIN.DATASET, cfg.TEST.SPLIT)
+    valset = torchvision.datasets.ImageFolder(
+        root=valdir,
+        transform=transforms.Compose(
+            [
+                transforms.Resize(cfg.TEST.IM_SIZE),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
         ),
+    )
+    val_sampler = torch.utils.data.distributed.DistributedSampler(valset)
+    val_loader = torch.utils.data.DataLoader(
+        valset,
         batch_size=cfg.TEST.BATCH_SIZE,
         shuffle=False,
+        sampler=val_sampler,
         num_workers=cfg.TRAIN.WORKERS,
         pin_memory=cfg.TRAIN.PIN_MEMORY,
+        drop_last=False,
     )
-    return train_loader, val_loader
+    return val_loader
 
 
 def construct_optimizer(model):

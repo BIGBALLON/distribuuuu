@@ -53,8 +53,6 @@ if __name__ == "__main__":
 
     # 1. define network
     net = torchvision.models.resnet18(pretrained=False, num_classes=10)
-    # SyncBN
-    net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
     net = net.cuda(local_rank)
     # DistributedDataParallel
     net = DDP(net, device_ids=[local_rank], output_device=local_rank)
@@ -141,7 +139,7 @@ usage:
 >>> srun --help
 
 example:
->>> srun --partition=openai -n8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --job-name=slrum_test \
+>>> srun --partition=openai -n8 --gres=gpu:8 --ntasks-per-node=8 --job-name=slrum_test \
     python -u mnmc_ddp_slurm.py
 
             =======  Training  ======= 
