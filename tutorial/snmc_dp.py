@@ -89,7 +89,7 @@ if __name__ == "__main__":
     print("\n            =======  Training Finished  ======= \n")
 
 """
-usage:
+usage: 2GPUs for training
 >>> CUDA_VISIBLE_DEVICES=0,1 python snmc_dp.py
 
 Files already downloaded and verified

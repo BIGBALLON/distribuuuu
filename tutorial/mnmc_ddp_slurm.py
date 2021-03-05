@@ -141,7 +141,7 @@ usage:
 >>> srun --help
 
 example:
->>> srun --partition=openai -n8 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=5 --job-name=slrum_test \
+>>> srun --partition=openai -n8 --gres=gpu:8 --ntasks-per-node=8 --job-name=slrum_test \
     python -u mnmc_ddp_slurm.py
 
             =======  Training  ======= 

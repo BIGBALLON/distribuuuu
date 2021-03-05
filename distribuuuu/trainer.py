@@ -10,8 +10,9 @@ from distribuuuu import models, utils
 from distribuuuu.config import cfg
 
 
-def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
-
+def train_epoch(train_loader, net, criterion, optimizer, cur_epoch):
+    """Train one epoch"""
+    rank = torch.distributed.get_rank()
     batch_time, data_time, losses, top1, topk = utils.construct_meters()
     progress = utils.ProgressMeter(
         len(train_loader),
@@ -23,12 +24,13 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
     lr = utils.get_epoch_lr(cur_epoch)
     utils.set_lr(optimizer, lr)
     if rank == 0:
-        logger.debug(f"CURRENT EPOCH: {cur_epoch+1:3d},   LR: {lr:.4f}")
+        logger.debug(
+            f"CURRENT EPOCH: {cur_epoch+1:3d},   LR: {lr:.4f},   POLICY: {cfg.OPTIM.LR_POLICY}"
+        )
 
     # Set sampler
     train_loader.sampler.set_epoch(cur_epoch)
 
-    # Switch to train mode
     net.train()
     end = time.time()
     for idx, (inputs, targets) in enumerate(train_loader):
@@ -60,16 +62,16 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, rank):
             progress.display(idx + 1)
 
 
-def validate(val_loader, net, criterion, cur_epoch, rank):
-
+def validate(val_loader, net, criterion):
+    """Validte the model"""
+    rank = torch.distributed.get_rank()
     batch_time, data_time, losses, top1, topk = utils.construct_meters()
     progress = utils.ProgressMeter(
         len(val_loader),
         [batch_time, data_time, losses, top1, topk],
-        prefix=f"VAL:  [{cur_epoch+1}]",
+        prefix="VAL:  ",
     )
 
-    # Switch to evaluate mode
     net.eval()
     with torch.no_grad():
         end = time.time()
@@ -100,8 +102,9 @@ def validate(val_loader, net, criterion, cur_epoch, rank):
 
 
 def train_model():
+    """Train a model"""
 
-    # 0x00. Set up distributed device
+    # Set up distributed device
     utils.setup_distributed()
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -109,19 +112,16 @@ def train_model():
     logger.debug(f"LOCAL_RANK: {local_rank}, RANK: {rank}")
     utils.construct_logger()
 
-    # 0x01. Define network
-    net = models.build_model(arch=cfg.MODEL.ARCH)
-    # SyncBN
-    # https://pytorch.org/docs/stable/generated/torch.nn.SyncBatchNorm.html
-    net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
+    # SyncBN (https://pytorch.org/docs/stable/generated/torch.nn.SyncBatchNorm.html)
+    net = nn.SyncBatchNorm.convert_sync_batchnorm(net) if cfg.MODEL.SYNCBN else net
     net = net.to(device)
-    # DistributedDataParallel wrapper
+    # DistributedDataParallel Wrapper
     net = DDP(net, device_ids=[local_rank], output_device=local_rank)
 
-    # 0x02. Define dataloader
-    train_loader, val_loader = utils.construct_loader()
+    train_loader = utils.construct_train_loader()
+    val_loader = utils.construct_val_loader()
 
-    # 0x03. Define criterion and optimizer
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = utils.construct_optimizer(net)
 
@@ -130,9 +130,9 @@ def train_model():
     if cfg.TRAIN.AUTO_RESUME and utils.has_checkpoint():
         file = utils.get_last_checkpoint()
         start_epoch, best_acc1 = utils.load_checkpoint(file, net, optimizer)
-    elif cfg.TRAIN.WEIGHTS:
+    elif cfg.MODEL.WEIGHTS:
         load_opt = optimizer if cfg.TRAIN.LOAD_OPT else None
-        utils.load_checkpoint(cfg.TRAIN.WEIGHTS, net, load_opt)
+        utils.load_checkpoint(cfg.MODEL.WEIGHTS, net, load_opt)
 
     if rank == 0:
         # from torch.utils.collect_env import get_pretty_env_info
@@ -140,12 +140,11 @@ def train_model():
         # logger.debug(net)
         logger.info("\n\n\n            =======  TRAINING  ======= \n\n")
 
-    # 0x04. Start to train
     for epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
         # Train one epoch
-        train_epoch(train_loader, net, criterion, optimizer, epoch, rank)
+        train_epoch(train_loader, net, criterion, optimizer, epoch)
         # Validate
-        acc1, acck = validate(val_loader, net, criterion, epoch, rank)
+        acc1, acck = validate(val_loader, net, criterion)
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
         # Save model
@@ -154,5 +153,28 @@ def train_model():
         )
         if rank == 0:
             logger.info(
-                f"ACCURACY:  TOP1 {acc1:.3f}(BEST {best_acc1:.3f}) | TOP{cfg.TRAIN.TOPK} {acck:.3f} | SAVED {checkpoint_file}"
+                f"ACCURACY: TOP1 {acc1:.3f}(BEST {best_acc1:.3f}) | TOP{cfg.TRAIN.TOPK} {acck:.3f} | SAVED {checkpoint_file}"
             )
+
+
+def test_model():
+    """Test a model"""
+    utils.setup_distributed()
+    utils.construct_logger()
+    rank = int(os.environ["RANK"])
+    local_rank = int(os.environ["LOCAL_RANK"])
+    device = torch.device("cuda", local_rank)
+
+    net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
+    net = net.to(device)
+    net = DDP(net, device_ids=[local_rank], output_device=local_rank)
+
+    val_loader = utils.construct_val_loader()
+    criterion = nn.CrossEntropyLoss().to(device)
+
+    if cfg.MODEL.WEIGHTS:
+        utils.load_checkpoint(cfg.MODEL.WEIGHTS, net)
+
+    acc1, acck = validate(val_loader, net, criterion)
+    if rank == 0:
+        logger.info(f"ACCURACY: TOP1 {acc1:.3f}  |  TOP{cfg.TRAIN.TOPK} {acck:.3f}")
