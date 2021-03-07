@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,7 @@ import torchvision.transforms as transforms
 from iopath.common.file_io import g_pathmgr
 from loguru import logger
 
+import distribuuuu.config as config
 from distribuuuu.config import cfg
 
 
@@ -48,7 +50,36 @@ def setup_distributed(backend="nccl", port=None):
         world_size=world_size,
         rank=rank,
     )
-    torch.backends.cudnn.benchmark = cfg.CUDNN.BENCHMARK
+
+
+def setup_seed(rank):
+    """Sets up environment for training or testing."""
+    if rank == 0:
+        g_pathmgr.mkdirs(cfg.OUT_DIR)
+        config.dump_cfg()
+
+    if cfg.RNG_SEED:
+        np.random.seed(cfg.RNG_SEED + rank)
+        torch.manual_seed(cfg.RNG_SEED + rank)
+        random.seed(cfg.RNG_SEED + rank)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+    else:
+        torch.backends.cudnn.benchmark = cfg.CUDNN.BENCHMARK
+        torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
+
+
+def construct_logger(rank, local_rank):
+    logger.remove()
+    fmt_str = "[{time:YYYY-MM-DD HH:mm:ss}] {message}"
+    logger.add(
+        f"{cfg.OUT_DIR}/{time.time()}.log",
+        format=fmt_str,
+    )
+    logger.add(sys.stderr, format=fmt_str)
+    logger.debug(f"LOCAL_RANK: {local_rank}, RANK: {rank}")
+    if rank == 0:
+        logger.debug(f"\n{cfg.dump()}")
 
 
 def scaled_all_reduce(tensors):
@@ -145,19 +176,6 @@ def construct_optimizer(model):
         dampening=cfg.OPTIM.DAMPENING,
         nesterov=cfg.OPTIM.NESTEROV,
     )
-
-
-def construct_logger():
-    if torch.distributed.get_rank() != 0:
-        return
-    fmt_str = "[{time:YYYY-MM-DD HH:mm:ss}] {message}"
-    logger.add(
-        f"{cfg.OUT_DIR}/{time.time()}.log",
-        format=fmt_str,
-    )
-    logger.debug(f"\n{cfg.dump()}")
-    logger.remove(0)
-    logger.add(sys.stderr, format=fmt_str)
 
 
 class AverageMeter(object):

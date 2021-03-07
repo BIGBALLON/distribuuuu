@@ -109,8 +109,9 @@ def train_model():
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     device = torch.device("cuda", local_rank)
-    logger.debug(f"LOCAL_RANK: {local_rank}, RANK: {rank}")
-    utils.construct_logger()
+
+    utils.setup_seed(rank)
+    utils.construct_logger(rank, local_rank)
 
     net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
     # SyncBN (https://pytorch.org/docs/stable/generated/torch.nn.SyncBatchNorm.html)

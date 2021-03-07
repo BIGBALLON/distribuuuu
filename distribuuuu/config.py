@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from iopath.common.file_io import g_pathmgr
 from yacs.config import CfgNode as CN
@@ -7,13 +8,13 @@ _C = CN()
 cfg = _C
 
 _C.MODEL = CN()
-_C.MODEL.ARCH = "resnet50"
+_C.MODEL.ARCH = "resnet18"
 _C.MODEL.PRETRAINED = False
 _C.MODEL.SYNCBN = False
 _C.MODEL.WEIGHTS = None
 
 _C.TRAIN = CN()
-_C.TRAIN.BATCH_SIZE = 64
+_C.TRAIN.BATCH_SIZE = 128
 _C.TRAIN.IM_SIZE = 224
 _C.TRAIN.DATASET = "./data/ILSVRC/"
 _C.TRAIN.SPLIT = "train"
@@ -36,6 +37,8 @@ _C.TEST.PRINT_FREQ = 10
 
 _C.CUDNN = CN()
 _C.CUDNN.BENCHMARK = True
+_C.CUDNN.DETERMINISTIC = False
+
 
 _C.OPTIM = CN()
 # Learning rate policy select from {'cos', 'steps'}
@@ -50,10 +53,14 @@ _C.OPTIM.DAMPENING = 0.0
 _C.OPTIM.NESTEROV = True
 _C.OPTIM.WARMUP_FACTOR = 0.1
 _C.OPTIM.WARMUP_EPOCHS = 5
-_C.OPTIM.WEIGHT_DECAY = 5e-4
+_C.OPTIM.WEIGHT_DECAY = 5e-5
 
 # Output directory
 _C.OUT_DIR = "./exp"
+_C.CFG_DEST = "config.yaml"
+
+# Note that non-determinism is still be present due to non-deterministic GPU ops
+_C.RNG_SEED = None
 
 _CFG_DEFAULT = _C.clone()
 _CFG_DEFAULT.freeze()
@@ -63,6 +70,13 @@ def merge_from_file(cfg_file):
     with g_pathmgr.open(cfg_file, "r") as f:
         cfg = _C.load_cfg(f)
     _C.merge_from_other_cfg(cfg)
+
+
+def dump_cfg():
+    """Dumps the config to the output directory."""
+    cfg_file = os.path.join(_C.OUT_DIR, _C.CFG_DEST)
+    with g_pathmgr.open(cfg_file, "w") as f:
+        _C.dump(stream=f)
 
 
 def reset_cfg():
