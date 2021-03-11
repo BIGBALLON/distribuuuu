@@ -72,10 +72,11 @@ def setup_seed(rank):
 def setup_logger(rank, local_rank):
     logger.remove()
     fmt_str = "[{time:YYYY-MM-DD HH:mm:ss}] {message}"
-    logger.add(
-        f"{cfg.OUT_DIR}/{time.time()}.log",
-        format=fmt_str,
-    )
+    if rank == 0:
+        logger.add(
+            f"{cfg.OUT_DIR}/{time.time()}.log",
+            format=fmt_str,
+        )
     logger.add(sys.stderr, format=fmt_str)
     logger.debug(f"LOCAL_RANK: {local_rank}, RANK: {rank}")
     if rank == 0:
