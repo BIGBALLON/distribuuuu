@@ -68,8 +68,6 @@ if __name__ == "__main__":
 
     # 1. define network
     net = torchvision.models.resnet18(pretrained=False, num_classes=1000)
-    # SyncBN
-    net = nn.SyncBatchNorm.convert_sync_batchnorm(net)
     net = net.to(device)
     # DistributedDataParallel
     net = DDP(net, device_ids=[local_rank], output_device=local_rank)
