@@ -1,0 +1,41 @@
+CFG_DEST: config.yaml
+CUDNN:
+  BENCHMARK: true
+  DETERMINISTIC: false
+MODEL:
+  ARCH: resnet18
+  PRETRAINED: false
+  SYNCBN: false
+  WEIGHTS: null
+OPTIM:
+  BASE_LR: 0.2
+  DAMPENING: 0.0
+  LR_MULT: 0.1
+  LR_POLICY: cos
+  MAX_EPOCH: 100
+  MIN_LR: 0.0
+  MOMENTUM: 0.9
+  NESTEROV: true
+  STEPS: []
+  WARMUP_EPOCHS: 5
+  WARMUP_FACTOR: 0.1
+  WEIGHT_DECAY: 5.0e-05
+OUT_DIR: ./exp
+RNG_SEED: null
+TEST:
+  BATCH_SIZE: 200
+  DATASET: ./data/ILSVRC/
+  IM_SIZE: 256
+  PRINT_FREQ: 10
+  SPLIT: val
+TRAIN:
+  AUTO_RESUME: true
+  BATCH_SIZE: 32
+  DATASET: ./data/ILSVRC/
+  IM_SIZE: 224
+  LOAD_OPT: true
+  PIN_MEMORY: true
+  PRINT_FREQ: 30
+  SPLIT: train
+  TOPK: 5
+  WORKERS: 4

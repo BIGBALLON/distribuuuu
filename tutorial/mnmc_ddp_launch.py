@@ -144,7 +144,7 @@ exmaple: 1 node, 4 GPUs per node (4GPUs)
 
             =======  Training Finished  =======
 
-exmaple: 2 node, 4 GPUs per node (8GPUs)
+exmaple: 1 node, 2tasks, 4 GPUs per task (8GPUs)
 >>> CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
     --nproc_per_node=4 \
     --nnodes=2 \
@@ -153,7 +153,7 @@ exmaple: 2 node, 4 GPUs per node (8GPUs)
     --master_port=22222 \
     mnmc_ddp_launch.py
 
->>> CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
+>>> CUDA_VISIBLE_DEVICES=4,5,6,7 python -m torch.distributed.launch \
     --nproc_per_node=4 \
     --nnodes=2 \
     --node_rank=1 \
