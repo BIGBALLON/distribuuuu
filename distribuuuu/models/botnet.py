@@ -60,7 +60,7 @@ def relative_logits_1d(q, rel_k):
 class AbsPosEmb(nn.Module):
     def __init__(self, height, width, dim_head):
         super().__init__()
-        assert height == width
+        # assert height == width
         scale = dim_head ** -0.5
         self.height = nn.Parameter(torch.randn(height, dim_head) * scale)
         self.width = nn.Parameter(torch.randn(width, dim_head) * scale)
@@ -77,14 +77,16 @@ class AbsPosEmb(nn.Module):
 class RelPosEmb(nn.Module):
     def __init__(self, height, width, dim_head):
         super().__init__()
-        assert height == width
+        # assert height == width
         scale = dim_head ** -0.5
-        self.fmap_size = height
+        self.height = height
+        self.width = width
         self.rel_height = nn.Parameter(torch.randn(height * 2 - 1, dim_head) * scale)
         self.rel_width = nn.Parameter(torch.randn(width * 2 - 1, dim_head) * scale)
 
     def forward(self, q):
-        h = w = self.fmap_size
+        h = self.height
+        w = self.width
 
         q = rearrange(q, "b h (x y) d -> b h x y d", x=h, y=w)
         rel_logits_w = relative_logits_1d(q, self.rel_width)
@@ -288,12 +290,29 @@ def botnet50(pretrained=False, **kwargs):
     return model
 
 
-def test():
-    x = torch.ones(16, 3, 224, 224)
-    model = botnet50()
+def test_botnet50():
+    x = torch.ones(16, 3, 224, 224).cuda()
+    model = botnet50().cuda()
+    y = model(x)
+    print(y.shape)
+
+
+def test_backbone():
+    x = torch.ones(16, 3, 256, 128).cuda()
+    resnet = resnet50()
+    layer = BoTStack(dim=1024, fmap_size=(16, 8), stride=1, rel_pos_emb=True)
+    backbone = list(resnet.children())
+    model = nn.Sequential(
+        *backbone[:-3],
+        layer,
+        nn.AdaptiveAvgPool2d((1, 1)),
+        nn.Flatten(1),
+        nn.Linear(2048, 1000),
+    ).cuda()
+
     y = model(x)
     print(y.shape)
 
 
 if __name__ == "__main__":
-    test()
+    test_backbone()
