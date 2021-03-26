@@ -321,6 +321,12 @@ def has_checkpoint():
     return any(_NAME_PREFIX in f for f in g_pathmgr.ls(checkpoint_dir))
 
 
+def unwrap_model(model):
+    """Remove the DistributedDataParallel wrapper if present."""
+    wrapped = isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel)
+    return model.module if wrapped else model
+
+
 def save_checkpoint(model, optimizer, epoch, best_acc1, best):
     """Saves a checkpoint."""
     # Save checkpoints only from the master process
@@ -331,7 +337,7 @@ def save_checkpoint(model, optimizer, epoch, best_acc1, best):
     # Record the state
     checkpoint = {
         "epoch": epoch,
-        "state_dict": model.state_dict(),
+        "state_dict": unwrap_model(model).state_dict(),
         "optimizer": optimizer.state_dict(),
         "best_acc1": best_acc1,
     }
@@ -346,17 +352,21 @@ def save_checkpoint(model, optimizer, epoch, best_acc1, best):
 
 def load_checkpoint(checkpoint_file, model, optimizer=None):
     """Loads the checkpoint from the given file."""
-    err_str = "CHECKPOINT '{}' NOT FOUND"
-    assert g_pathmgr.exists(checkpoint_file), err_str.format(checkpoint_file)
-    local_rank = int(os.environ["LOCAL_RANK"])
-    map_location = f"cuda:{local_rank}"
-    checkpoint = torch.load(checkpoint_file, map_location=map_location)
-    model.load_state_dict(checkpoint["state_dict"])
+    err_str = f"CHECKPOINT '{checkpoint_file}' NOT FOUND"
+    assert g_pathmgr.exists(checkpoint_file), err_str
     start_epoch = best_acc1 = 0
-    if optimizer:
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        start_epoch = checkpoint["epoch"] + 1
-        best_acc1 = checkpoint["best_acc1"]
+    checkpoint = torch.load(checkpoint_file, map_location="cpu")
+    if "state_dict" in checkpoint:
+        unwrap_model(model).load_state_dict(checkpoint["state_dict"])
+        if optimizer:
+            try:
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                start_epoch = checkpoint["epoch"] + 1
+                best_acc1 = checkpoint["best_acc1"]
+            except BaseException:
+                logger.info(f"CAN'T FOUND OPTIMIZER in {checkpoint_file}")
+    else:
+        unwrap_model(model).load_state_dict(checkpoint)
     if torch.distributed.get_rank() == 0:
         logger.info(f"LOADED '{checkpoint_file}'")
     return start_epoch, best_acc1

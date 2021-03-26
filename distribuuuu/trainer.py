@@ -133,7 +133,7 @@ def train_model():
         start_epoch, best_acc1 = utils.load_checkpoint(file, net, optimizer)
     elif cfg.MODEL.WEIGHTS:
         load_opt = optimizer if cfg.TRAIN.LOAD_OPT else None
-        utils.load_checkpoint(cfg.MODEL.WEIGHTS, net, load_opt)
+        start_epoch, best_acc1 = utils.load_checkpoint(cfg.MODEL.WEIGHTS, net, load_opt)
 
     if rank == 0:
         # from torch.utils.collect_env import get_pretty_env_info
@@ -160,11 +160,13 @@ def train_model():
 
 def test_model():
     """Test a model"""
+
     utils.setup_distributed()
-    utils.setup_logger()
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     device = torch.device("cuda", local_rank)
+    
+    utils.setup_logger(rank, local_rank)
 
     net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
     net = net.to(device)

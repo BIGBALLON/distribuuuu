@@ -164,6 +164,22 @@ if __name__ == "__main__":
     optimizer.load_state_dict(checkpoint["optimizer"])
     print(f"(rank: {rank})   == Loaded: {checkpoint_file}")
 
+    # method 2: net.module & map_location="cpu"
+    # checkpoint_file = "./ckpt.pth.tar"
+    # if rank == 0:
+    #     checkpoint = {
+    #         "state_dict": net.module.state_dict(),
+    #         "optimizer": optimizer.state_dict(),
+    #     }
+    #     torch.save(checkpoint, checkpoint_file)
+    #     print(f"(rank: {rank})   == Saved: {checkpoint_file}")
+    # dist.barrier()
+    # # map model to be loaded to specified single gpu.
+    # checkpoint = torch.load(checkpoint_file, map_location="cpu")
+    # net.module.load_state_dict(checkpoint["state_dict"])
+    # optimizer.load_state_dict(checkpoint["optimizer"])
+    # print(f"(rank: {rank})   == Loaded: {checkpoint_file}")
+
 """
 distributed.launch example: 
     8GPUs (batch size: 2048)
