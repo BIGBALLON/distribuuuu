@@ -50,8 +50,8 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch):
         loss, acc_1, acc_k = utils.scaled_all_reduce([loss, acc_1, acc_k])
 
         losses.update(loss.item(), batch_size)
-        top1.update(acc_1[0], batch_size)
-        topk.update(acc_k[0], batch_size)
+        top1.update(acc_1[0].item(), batch_size)
+        topk.update(acc_k[0].item(), batch_size)
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -88,8 +88,8 @@ def validate(val_loader, net, criterion):
 
             batch_size = inputs.size(0)
             losses.update(loss.item(), batch_size)
-            top1.update(acc_1[0], batch_size)
-            topk.update(acc_k[0], batch_size)
+            top1.update(acc_1[0].item(), batch_size)
+            topk.update(acc_k[0].item(), batch_size)
             batch_time.update(time.time() - end)
             end = time.time()
 
@@ -165,7 +165,7 @@ def test_model():
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     device = torch.device("cuda", local_rank)
-    
+
     utils.setup_logger(rank, local_rank)
 
     net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
