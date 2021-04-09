@@ -24,7 +24,7 @@ Distribuuuu is a Distributed Classification Training Framework powered by native
 Please check [tutorial](./tutorial/) for detailed **Distributed Training** tutorials:
 
 - Single Node Single GPU Card Training [[snsc.py](./tutorial/snsc.py)]
-- Single Node Multi-GPU Crads Training (with DataParallel) [[snmc_dp.py](./tutorial/snmc_dp.py)]
+- Single Node Multi-GPU Cards Training (with DataParallel) [[snmc_dp.py](./tutorial/snmc_dp.py)]
 - Multiple Nodes Multi-GPU Cards Training (with DistributedDataParallel)
     - torch.distributed.launch [[mnmc_ddp_launch.py](./tutorial/mnmc_ddp_launch.py)]
     - torch.multiprocessing [[mnmc_ddp_mp.py](./tutorial/mnmc_ddp_mp.py)]
@@ -37,7 +37,7 @@ For the complete training framework, please see [distribuuuu](./distribuuuu/).
 
 ### Dependency
 
-- Install **PyTorch>= 1.5** (has been tested on **1.5, 1.7.1** and **1.8**)
+- Install **PyTorch>= 1.6** (has been tested on **1.6, 1.7.1, 1.8** and **1.8.1**)
 - Install other dependencies: ``pip install -r requirements.txt``
 
 ### Dataset

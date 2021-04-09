@@ -1,6 +1,7 @@
 import os
 import time
 
+import timm
 import torch
 import torch.nn as nn
 from loguru import logger
@@ -113,7 +114,19 @@ def train_model():
     utils.setup_seed(rank)
     utils.setup_logger(rank, local_rank)
 
-    net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
+    try:
+        net = models.build_model(
+            arch=cfg.MODEL.ARCH,
+            pretrained=cfg.MODEL.PRETRAINED,
+            num_classes=cfg.MODEL.NUM_CLASSES,
+        )
+    except:
+        net = timm.create_model(
+            model_name=cfg.MODEL.ARCH,
+            pretrained=cfg.MODEL.PRETRAINED,
+            num_classes=cfg.MODEL.NUM_CLASSES,
+        )
+
     # SyncBN (https://pytorch.org/docs/stable/generated/torch.nn.SyncBatchNorm.html)
     net = nn.SyncBatchNorm.convert_sync_batchnorm(net) if cfg.MODEL.SYNCBN else net
     net = net.to(device)
@@ -168,7 +181,18 @@ def test_model():
 
     utils.setup_logger(rank, local_rank)
 
-    net = models.build_model(arch=cfg.MODEL.ARCH, pretrained=cfg.MODEL.PRETRAINED)
+    try:
+        net = models.build_model(
+            arch=cfg.MODEL.ARCH,
+            pretrained=cfg.MODEL.PRETRAINED,
+            num_classes=cfg.MODEL.NUM_CLASSES,
+        )
+    except:
+        net = timm.create_model(
+            model_name=cfg.MODEL.ARCH,
+            pretrained=cfg.MODEL.PRETRAINED,
+            num_classes=cfg.MODEL.NUM_CLASSES,
+        )
     net = net.to(device)
     net = DDP(net, device_ids=[local_rank], output_device=local_rank)
 
