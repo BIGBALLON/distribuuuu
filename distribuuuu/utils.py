@@ -107,22 +107,37 @@ def scaled_all_reduce(tensors):
     return tensors
 
 
+class DummyDataset(torch.utils.data.Dataset):
+    def __init__(self, length, size):
+        self.len = length
+        self.data = torch.randn([length] + size)
+
+    def __getitem__(self, index):
+        return self.data[index], 0
+
+    def __len__(self):
+        return self.len
+
+
 def construct_train_loader():
     """Constructs the train data loader for ILSVRC dataset."""
     traindir = os.path.join(cfg.TRAIN.DATASET, cfg.TRAIN.SPLIT)
-    trainset = torchvision.datasets.ImageFolder(
-        root=traindir,
-        transform=transforms.Compose(
-            [
-                transforms.RandomResizedCrop(cfg.TRAIN.IM_SIZE),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        ),
-    )
+    if cfg.MODEL.DUMMY_INPUT:
+        trainset = DummyDataset(1000, [3, 224, 224])
+    else:
+        trainset = torchvision.datasets.ImageFolder(
+            root=traindir,
+            transform=transforms.Compose(
+                [
+                    transforms.RandomResizedCrop(cfg.TRAIN.IM_SIZE),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            ),
+        )
     # DistributedSampler
     train_sampler = torch.utils.data.distributed.DistributedSampler(
         trainset, shuffle=True
@@ -141,19 +156,22 @@ def construct_train_loader():
 def construct_val_loader():
     """Constructs the validate data loader for ILSVRC dataset."""
     valdir = os.path.join(cfg.TRAIN.DATASET, cfg.TEST.SPLIT)
-    valset = torchvision.datasets.ImageFolder(
-        root=valdir,
-        transform=transforms.Compose(
-            [
-                transforms.Resize(cfg.TEST.IM_SIZE),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        ),
-    )
+    if cfg.MODEL.DUMMY_INPUT:
+        valset = DummyDataset(1000, [3, 224, 224])
+    else:
+        valset = torchvision.datasets.ImageFolder(
+            root=valdir,
+            transform=transforms.Compose(
+                [
+                    transforms.Resize(cfg.TEST.IM_SIZE),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            ),
+        )
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset)
     val_loader = torch.utils.data.DataLoader(
         valset,
@@ -335,18 +353,20 @@ def save_checkpoint(model, optimizer, epoch, best_acc1, best):
     # Ensure that the checkpoint dir exists
     g_pathmgr.mkdirs(get_checkpoint_dir())
     # Record the state
+    state_dict = unwrap_model(model).state_dict()
     checkpoint = {
         "epoch": epoch,
-        "state_dict": unwrap_model(model).state_dict(),
+        "state_dict": state_dict,
         "optimizer": optimizer.state_dict(),
         "best_acc1": best_acc1,
     }
     # Write the checkpoint
     checkpoint_file = get_checkpoint(epoch + 1)
     torch.save(checkpoint, checkpoint_file)
-    # If best copy checkpoint to the best checkpoint
+
+    # If best, save the weight only
     if best:
-        shutil.copyfile(checkpoint_file, os.path.join(cfg.OUT_DIR, "best.pth.tar"))
+        torch.save(state_dict, os.path.join(cfg.OUT_DIR, "best.pth.tar"))
     return checkpoint_file
 
 
