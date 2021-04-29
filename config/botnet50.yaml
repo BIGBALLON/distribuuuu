@@ -4,6 +4,8 @@ CUDNN:
   DETERMINISTIC: false
 MODEL:
   ARCH: botnet50
+  DUMMY_INPUT: false
+  NUM_CLASSES: 1000
   PRETRAINED: false
   SYNCBN: false
   WEIGHTS: null
