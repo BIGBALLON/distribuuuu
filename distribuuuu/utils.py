@@ -339,6 +339,13 @@ def has_checkpoint():
     return any(_NAME_PREFIX in f for f in g_pathmgr.ls(checkpoint_dir))
 
 
+def count_parameters(model):
+    parms = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    mb_size = parms * 4.0 / 1024 / 1024
+    parms = parms / 1000000
+    return f"Params(M): {parms}:, Model Size(MB): {mb_size:.3f}"
+
+
 def unwrap_model(model):
     """Remove the DistributedDataParallel wrapper if present."""
     wrapped = isinstance(model, torch.nn.parallel.distributed.DistributedDataParallel)
