@@ -153,6 +153,7 @@ def train_model():
         # logger.debug(get_pretty_env_info())
         # logger.debug(net)
         logger.info("\n\n\n            =======  TRAINING  ======= \n\n")
+        logger.info(utils.count_parameters(net))
 
     for epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
         # Train one epoch

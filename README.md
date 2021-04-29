@@ -213,7 +213,7 @@ Before PyTorch1.8, ``torch.distributed.launch`` will leave some zombie processes
 kill $(ps aux | grep YOUR_SCRIPT.py | grep -v grep | awk '{print $2}')
 ```
 
-PyTorch1.8 is suggested, which fixed the issue about zombie process. ([pytorch/pull/49305](https://github.com/pytorch/pytorch/pull/49305))
+PyTorch >= 1.8 is suggested, which fixed the issue about zombie process. ([pytorch/pull/49305](https://github.com/pytorch/pytorch/pull/49305))
 
 
 ## Acknowledgments
