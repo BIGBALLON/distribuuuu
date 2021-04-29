@@ -33,7 +33,7 @@ def setup_distributed(backend="nccl", port=None):
         if port is not None:
             os.environ["MASTER_PORT"] = str(port)
         elif "MASTER_PORT" not in os.environ:
-            os.environ["MASTER_PORT"] = "29500"
+            os.environ["MASTER_PORT"] = "29566"
         if "MASTER_ADDR" not in os.environ:
             os.environ["MASTER_ADDR"] = addr
         os.environ["WORLD_SIZE"] = str(world_size)
@@ -337,6 +337,13 @@ def has_checkpoint():
     if not g_pathmgr.exists(checkpoint_dir):
         return False
     return any(_NAME_PREFIX in f for f in g_pathmgr.ls(checkpoint_dir))
+
+
+def count_parameters(model):
+    parms = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    mb_size = parms * 4.0 / 1024 / 1024
+    parms = parms / 1000000
+    return f"Params(M): {parms:.3f}, Model Size(MB): {mb_size:.3f}"
 
 
 def unwrap_model(model):
