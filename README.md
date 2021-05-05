@@ -193,17 +193,28 @@ srun --partition=openai-a100 \
 
 ## Baselines
 
-Baseline models trained **by Distribuuuu**:
+**Baseline** models trained **by Distribuuuu**:
 
-|                    model                     | epoch |    total batch     | lr policy | base lr | Acc@1  | Acc@5  |                                                       model / config                                                        |
-| :------------------------------------------: | :---: | :----------------: | :-------: | :-----: | :----: | :----: | :-------------------------------------------------------------------------------------------------------------------------: |
-|                   resnet18                   |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 70.902 | 89.894 | [Drive](https://drive.google.com/file/d/18a6QFc_DoTHo3TWkN_EsptyGmhF97sVw/view?usp=sharing) / [cfg](./config/resnet18.yaml) |
-|                   resnet18                   |  100  |  1024 (128*8GPUs)  |    cos    |   0.8   | 70.994 | 89.892 |                                                                                                                             |
-|                   resnet18                   |  100  | 8192 (128*64GPUs)  |    cos    |   6.4   | 70.165 | 89.374 |                                                                                                                             |
-|                   resnet18                   |  100  | 16384 (256*64GPUs) |    cos    |  12.8   | 68.766 | 88.381 |                                                                                                                             |
-|                   resnet50                   |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 77.252 | 93.430 | [Drive](https://drive.google.com/file/d/1rUY1mSYTxe7jWzzcWrreg398tbSNXtnv/view?usp=sharing) / [cfg](./config/resnet50.yaml) |
-| [botnet50](https://arxiv.org/abs/2101.11605) |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 77.604 | 93.682 | [Drive](https://drive.google.com/file/d/1-jvhJaMyy-KziAuFnmt5rkoZrm5364UF/view?usp=sharing) / [cfg](./config/botnet50.yaml) |
-|                  resnext101                  |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 78.938 | 94.482 |                                                                                                                             |
+- We use SGD with momentum of 0.9, a half-period **cosine schedule**, and train for **100** epochs.
+- We use a **reference learning rate** of **0.1** and a weight decay of **5e-5** (1e-5 For EfficientNet).
+- The actual learning rate(**Base LR**) for each model is computed as **(batch-size / 128) * reference-lr**.
+- Only standard data augmentation techniques(RandomResizedCrop and RandomHorizontalFlip) are used.
+
+**PS: use other robust tricks(more epochs, efficient data augmentation, etc.) to get better performance.**
+
+
+|                     Arch                     | Params(M) |    Total batch     | Base LR | Acc@1  | Acc@5  |                                                           model / config                                                           |
+| :------------------------------------------: | :-------: | :----------------: | :-----: | :----: | :----: | :--------------------------------------------------------------------------------------------------------------------------------: |
+|                   resnet18                   |  11.690   |   256 (32*8GPUs)   |   0.2   | 70.902 | 89.894 |    [Drive](https://drive.google.com/file/d/18a6QFc_DoTHo3TWkN_EsptyGmhF97sVw/view?usp=sharing) / [cfg](./config/resnet18.yaml)     |
+|                   resnet18                   |  11.690   |  1024 (128*8GPUs)  |   0.8   | 70.994 | 89.892 |                                                                                                                                    |
+|                   resnet18                   |  11.690   | 8192 (128*64GPUs)  |   6.4   | 70.165 | 89.374 |                                                                                                                                    |
+|                   resnet18                   |  11.690   | 16384 (256*64GPUs) |  12.8   | 68.766 | 88.381 |                                                                                                                                    |
+|               efficientnet_b0                |   5.289   |   512 (64*8GPUs)   |   0.4   | 74.540 | 91.744 | [Drive](https://drive.google.com/file/d/1nSLQBBRKnAJYdoFhUUVsV8qI5270ooq3/view?usp=sharing) / [cfg](./config/efficientnet_b0.yaml) |
+|                   resnet50                   |  25.557   |   256 (32*8GPUs)   |   0.2   | 77.252 | 93.430 |    [Drive](https://drive.google.com/file/d/1rUY1mSYTxe7jWzzcWrreg398tbSNXtnv/view?usp=sharing) / [cfg](./config/resnet50.yaml)     |
+| [botnet50](https://arxiv.org/abs/2101.11605) |  20.859   |   256 (32*8GPUs)   |   0.2   | 77.604 | 93.682 |    [Drive](https://drive.google.com/file/d/1-jvhJaMyy-KziAuFnmt5rkoZrm5364UF/view?usp=sharing) / [cfg](./config/botnet50.yaml)     |
+|                 regnetx_160                  |  54.279   |   512 (64*8GPUs)   |   0.4   | 79.992 | 95.118 |   [Drive](https://drive.google.com/file/d/1w2LtMKiLHwz27fJOmymQmPCX1yPDuPsm/view?usp=sharing) / [cfg](./config/regnetx_160.yaml)   |
+|                 regnety_160                  |  83.590   |   512 (64*8GPUs)   |   0.4   | 80.598 | 95.090 |   [Drive](https://drive.google.com/file/d/1dmD94jeZCaYLI9DhbMN0V1uG6_KHkx_o/view?usp=sharing) / [cfg](./config/regnety_160.yaml)   |
+|                 regnety_320                  |  145.047  |   512 (64*8GPUs)   |   0.4   | 80.824 | 95.276 |   [Drive](https://drive.google.com/file/d/1pVbSy4YSlWBra1C2NLTNwJkk_zOTomZg/view?usp=sharing) / [cfg](./config/regnety_320.yaml)   |
 ## Zombie processes problem
 
 
