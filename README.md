@@ -5,16 +5,16 @@
 
 </div>
 
-* [Introduction](#introduction)
-* [Requirements and Usage](#requirements-and-usage)
-  * [Dependency](#dependency)
-  * [Dataset](#dataset)
-  * [Basic Usage](#basic-usage)
-  * [Slurm Cluster Usage](#slurm-cluster-usage)
-* [Baselines](#baselines)
-* [Zombie processes problem](#zombie-processes-problem)
-* [Acknowledgments](#acknowledgments)
-* [Citation](#citation)
+- [Introduction](#introduction)
+- [Requirements and Usage](#requirements-and-usage)
+  - [Dependency](#dependency)
+  - [Dataset](#dataset)
+  - [Basic Usage](#basic-usage)
+  - [Slurm Cluster Usage](#slurm-cluster-usage)
+- [Baselines](#baselines)
+- [Zombie processes problem](#zombie-processes-problem)
+- [Acknowledgments](#acknowledgments)
+- [Citation](#citation)
 
 ## Introduction
 
@@ -193,7 +193,14 @@ srun --partition=openai-a100 \
 
 ## Baselines
 
-Baseline models trained **by Distribuuuu**:
+**Baseline** models trained **by Distribuuuu**:
+
+- We use SGD with momentum of 0.9, a half-period cosine schedule, and train for 100 epochs.
+- We use a **reference learning rate** of 0.1 and a weight decay of 5e-5 (1e-5 For EfficientNet).
+- The actual learning rate(**base lr**) for each model is computed as **(batch-size / 128) * reference-lr**.
+
+**PS: the following results are based on standard training techniques, you may use other robust tricks(more epochs, more efficient data augmentation, etc.) to get better performance.**
+
 
 |                    model                     | epoch |    total batch     | lr policy | base lr | Acc@1  | Acc@5  |                                                       model / config                                                        |
 | :------------------------------------------: | :---: | :----------------: | :-------: | :-----: | :----: | :----: | :-------------------------------------------------------------------------------------------------------------------------: |
@@ -204,6 +211,10 @@ Baseline models trained **by Distribuuuu**:
 |                   resnet50                   |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 77.252 | 93.430 | [Drive](https://drive.google.com/file/d/1rUY1mSYTxe7jWzzcWrreg398tbSNXtnv/view?usp=sharing) / [cfg](./config/resnet50.yaml) |
 | [botnet50](https://arxiv.org/abs/2101.11605) |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 77.604 | 93.682 | [Drive](https://drive.google.com/file/d/1-jvhJaMyy-KziAuFnmt5rkoZrm5364UF/view?usp=sharing) / [cfg](./config/botnet50.yaml) |
 |                  resnext101                  |  100  |   256 (32*8GPUs)   |    cos    |   0.2   | 78.938 | 94.482 |                                                                                                                             |
+|               efficientnet_b0                |  100  |   512 (64*8GPUs)   |    cos    |   0.4   | 74.540 | 91.744 |                                            [cfg](./config/efficientnet_b0.yaml)                                             |
+|                 regnetx_160                  |  100  |   512 (64*8GPUs)   |    cos    |   0.4   | 79.992 | 95.118 |                                              [cfg](./config/regnetx_160.yaml)                                               |
+|                 regnety_160                  |  100  |   512 (64*8GPUs)   |    cos    |   0.4   | 80.598 | 95.090 |                                              [cfg](./config/regnety_160.yaml)                                               |
+|                 regnety_320                  |  100  |   512 (64*8GPUs)   |    cos    |   0.4   | 80.824 | 95.276 |                                              [cfg](./config/regnety_320.yaml)                                               |
 ## Zombie processes problem
 
 
