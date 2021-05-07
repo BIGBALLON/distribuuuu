@@ -1,6 +1,5 @@
 import os
 import random
-import shutil
 import subprocess
 import sys
 import time
@@ -229,16 +228,28 @@ class ProgressMeter(object):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
         self.prefix = prefix
+        self.time_eta = None
 
     def display(self, batch):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
-        logger.info(" | ".join(entries))
+        if self.time_eta:
+            logger.info(f"ETA: {self.time_eta / 3600:.2f}h " + " | ".join(entries))
+        else:
+            logger.info(" | ".join(entries))
 
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
         fmt = "{:" + str(num_digits) + "d}"
         return "[" + fmt + "/" + fmt.format(num_batches) + "]"
+
+    def cal_eta(self, iters, total_iter, tic=time.time(), cur_epoch=0, start_epoch=0):
+        time_elapsed = time.time() - tic
+        ratio_running = (
+            cur_epoch - start_epoch + iters / total_iter
+        ) / cfg.OPTIM.MAX_EPOCH
+        ratio_remaining = 1 - (cur_epoch + iters / total_iter) / cfg.OPTIM.MAX_EPOCH
+        self.time_eta = time_elapsed / ratio_running * ratio_remaining
 
 
 def construct_meters():
