@@ -11,7 +11,7 @@ from distribuuuu import models, utils
 from distribuuuu.config import cfg
 
 
-def train_epoch(train_loader, net, criterion, optimizer, cur_epoch):
+def train_epoch(train_loader, net, criterion, optimizer, cur_epoch, start_epoch, tic):
     """Train one epoch"""
     rank = torch.distributed.get_rank()
     batch_time, data_time, losses, top1, topk = utils.construct_meters()
@@ -60,6 +60,7 @@ def train_epoch(train_loader, net, criterion, optimizer, cur_epoch):
         if rank == 0 and (
             (idx + 1) % cfg.TRAIN.PRINT_FREQ == 0 or (idx + 1) == len(train_loader)
         ):
+            progress.cal_eta(idx + 1, len(train_loader), tic, cur_epoch, start_epoch)
             progress.display(idx + 1)
 
 
@@ -113,14 +114,13 @@ def train_model():
 
     utils.setup_seed(rank)
     utils.setup_logger(rank, local_rank)
-
     try:
         net = models.build_model(
             arch=cfg.MODEL.ARCH,
             pretrained=cfg.MODEL.PRETRAINED,
             num_classes=cfg.MODEL.NUM_CLASSES,
         )
-    except:
+    except KeyError:
         net = timm.create_model(
             model_name=cfg.MODEL.ARCH,
             pretrained=cfg.MODEL.PRETRAINED,
@@ -155,9 +155,10 @@ def train_model():
         logger.info("\n\n\n            =======  TRAINING  ======= \n\n")
         logger.info(utils.count_parameters(net))
 
+    tic = time.time()
     for epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
         # Train one epoch
-        train_epoch(train_loader, net, criterion, optimizer, epoch)
+        train_epoch(train_loader, net, criterion, optimizer, epoch, start_epoch, tic)
         # Validate
         acc1, acck = validate(val_loader, net, criterion)
         is_best = acc1 > best_acc1
@@ -188,7 +189,7 @@ def test_model():
             pretrained=cfg.MODEL.PRETRAINED,
             num_classes=cfg.MODEL.NUM_CLASSES,
         )
-    except:
+    except KeyError:
         net = timm.create_model(
             model_name=cfg.MODEL.ARCH,
             pretrained=cfg.MODEL.PRETRAINED,
