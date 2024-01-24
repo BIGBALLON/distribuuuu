@@ -46,12 +46,13 @@ if __name__ == "__main__":
             ]
         ),
     )
+    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset,shuffle=True)
     train_loader = torch.utils.data.DataLoader(
         trainset,
         batch_size=BATCH_SIZE,
-        shuffle=True,
         num_workers=4,
         pin_memory=True,
+        sampler=train_sampler,
     )
 
     # 3. define loss and optimizer
@@ -100,7 +101,7 @@ if __name__ == "__main__":
 
 """
 usage: 2GPUs for training by DDP
->>> CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node 2 test.py
+>>> CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node 2 snmc_ddp.py
 
 Let's use 2 GPUs!
 Let's use 2 GPUs!
